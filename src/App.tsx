@@ -1,9 +1,9 @@
 import { GoogleOAuthProvider, useGoogleLogin } from "@react-oauth/google";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Clock, Info, List, Plus, Radio, RotateCcw, RotateCw } from "lucide-react";
-import "./ui/styles/global.css";
 import clsx from "clsx";
-import { debounce, get } from "lodash";
+import { debounce } from "lodash";
+import { Info, List, Plus, Radio, RotateCw } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import "./ui/styles/global.css";
 
 export const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwtfTgh_VX95AR3zYPokQODNzIwxfUf00uWS1wWS5hmCxCAxTtzbbk6PgCe9kPWWO8g/exec";
 export const ITUNES_SEARCH_URL      = "https://itunes.apple.com/search";
