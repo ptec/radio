@@ -505,7 +505,7 @@ function PlaylistEntry({
         isRejected() && "badge badge-error",
       )}
       >
-        <div className="tooltip-content flex flex-col gap-1">
+        <div className="tooltip-content max-w-xs flex flex-col gap-1">
           <span className="font-bold">Notes</span>
           { !notes && <span className="italic text-base-content/75 text-wrap">There are no notes to display at this time.</span> }
           { !!notes && <span>{notes}</span> }
