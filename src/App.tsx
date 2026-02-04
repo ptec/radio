@@ -1,7 +1,7 @@
 import { GoogleOAuthProvider, useGoogleLogin } from "@react-oauth/google";
 import clsx from "clsx";
 import { debounce } from "lodash";
-import { Info, List, Plus, Radio, RotateCw } from "lucide-react";
+import { Info, ListMusic, Plus, Radio, RotateCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./ui/styles/global.css";
 
@@ -30,8 +30,8 @@ function wrap(content: any) {
 
 async function unwrap(response: Response) {  ;
   return response.json().then(response => {
-         if (response &&  response.ok) return response.content;
-    else if (response && !response.ok) throw new Error(`[unwrap] ${response.error}`);
+         if (response && response.ok === true ) return response.content;
+    else if (response && response.ok === false) throw new Error(`[unwrap] ${response.error}`);
     else throw new Error(`[unwrap] Failed to unwrap response '${response}'`);
   })
 }
@@ -115,7 +115,7 @@ async function searchSongs(term: string): Promise<Song[]> {
     seen .add(id);
     songs.push({ title, artist });
     return songs;
-  }, []).splice(0, 5);
+  }, []).splice(0, 10);
 }
 
 export default function App() {
@@ -152,6 +152,7 @@ export default function App() {
       { !accessToken && (
         <div className="absolute w-dvw h-dvh flex flex-col justify-center items-center gap-4">
           <span className="text-4xl">CTE Radio 📻</span>
+          <span className="italic">Use your school provided Google account to login.</span>
           <button className="btn btn-primary" onClick={() => loginWithGoogle()}>Login with Google</button>
         </div>
       )}
@@ -222,26 +223,44 @@ function PlaylistIds({
 
   return (
     <>
-      <div className="flex flex-col">
-        <span className="bg-base-300 p-2 text-lg font-bold flex flex-row gap-2 items-center justify-center flex-nowrap"><Radio/> Playlists</span>
+      <table className="min-w-2xs">
+        <thead>
+          <tr>
+            <td>
+              <span className="bg-base-300 p-2 text-lg font-bold flex flex-row gap-2 items-center justify-center flex-nowrap"><Radio/> Playlists</span>
+            </td>
+          </tr>
+        </thead>
+        <tbody>
+          { playlistIds.map(playlistId => (
+            <PlaylistId
+              key={playlistId}
+              playlistId={playlistId}
+              selectedId={selectedId}
+              setSelectedId={setSelectedId}
+            />
+          ))}
 
-        { playlistIds.map(playlistId => (
-          <PlaylistId
-            key={playlistId}
-            playlistId={playlistId}
-            selectedId={selectedId}
-            setSelectedId={setSelectedId}
-          />
-        ))}
-        { fetchingPlaylistIds && (
-          <div className="flex justify-center items-center">
-            <div className="loading loading-spinner"/>
-          </div>
-        )}
-        <button className="btn btn-wide" onClick={
-          () => modal.current?.showModal()
-        }><Plus size={16}/> New Playlist</button>
-      </div>
+          { fetchingPlaylistIds && (          
+            <tr>
+              <td>
+                <div className="flex justify-center items-center p-2">
+                  <div className="loading loading-dots"/>
+                </div>
+              </td>
+            </tr>
+          )}
+
+          <tr>
+            <td>
+              <button className="btn w-full" onClick={
+                () => modal.current?.showModal()
+              }><Plus size={16}/> New Playlist</button>
+            </td>
+          </tr>
+        
+        </tbody>
+      </table>
 
       <dialog className="modal" ref={modal}>
         <form method="dialog" className="modal-box">
@@ -274,12 +293,14 @@ function PlaylistId({
   setSelectedId: React.Dispatch<React.SetStateAction<string>>,
 }) {
   return (
-    <div className={clsx(
-      "p-2 cursor-pointer hover:bg-primary hover:text-primary-content",
-      playlistId === selectedId && "bg-primary/50 text-primary-content"
+    <tr className={clsx(
+      "cursor-pointer hover:bg-primary/50 hover:text-primary-content",
+      playlistId === selectedId && "bg-primary text-primary-content"
     )} onClick={() => setSelectedId(playlistId)}>
-      {playlistId}
-    </div>
+      <td className="p-2 text-lg font-semibold">
+        <span>{playlistId}</span>
+      </td>
+    </tr>
   )
 }
 
@@ -302,16 +323,25 @@ function Playlist({
 
   const [searchString , setSearchString ] = useState("");
   const [searchResults, setSearchResults] = useState<Array<Song>>([]);
+  const [fetchingSearchResults, setFetchingSearchResults] = useState(0);
 
   const [title , setTitle ] = useState("");
   const [artist, setArtist] = useState("");
 
   const deSearchSongs = useMemo(() => debounce((term: string) => {
-    searchSongs(term).then(setSearchResults)
+    setFetchingSearchResults(count => count + 1);
+    searchSongs(term)
+      .then(setSearchResults)
+      .finally(() => {
+        setFetchingSearchResults(count => count - 1);
+      })
   }, 500), [ ]);
 
   useEffect(() => {
-    if (!searchString) return;
+    if (!searchString) {
+      setSearchResults([]);
+      return;
+    }
     deSearchSongs(searchString);
     return () => {
       deSearchSongs.cancel();
@@ -333,8 +363,12 @@ function Playlist({
       })
   }, [playlistId])
 
-  function tryAddSongRequest(title: string, artist: string) {
+  function tryAddSongRequest() {
     if (!playlistId) return;
+
+    if (!title.trim())
+      alert("Song request must include a title");
+
     setFetchingPlaylist(count => count + 1);
     addSongRequest(accessToken, playlistId, artist, title)
       .then(() => getPlaylist(accessToken, playlistId))
@@ -358,81 +392,118 @@ function Playlist({
 
   return (
     <>
-      <div className="grid grid-cols-[repeat(5,max-content)] gap-4">
-        <span className="min-w-2xl col-span-5 bg-base-300 p-2 text-lg font-bold flex flex-row items-center flex-nowrap gap-2"><List/> {playlistId || "..."}</span>
-        <span className="font-lg font-bold">Submitted When</span>
-        <span className="font-lg font-bold">Submitted By</span>
-        <span className="font-lg font-bold">Title </span>
-        <span className="font-lg font-bold">Artist</span>
-        <span className="font-lg font-bold">Status</span>
+      <table className="table">
+        <thead>
+          <tr>
+            <td className="min-w-2xl bg-base-300" colSpan={5}>
+              <span className="p-2 text-lg font-bold flex flex-row items-center flex-nowrap gap-2">
+                <ListMusic/> {playlistId.toUpperCase() || <div className="loading loading-dots p-2"/>}
+              </span>
+            </td>
+          </tr>
+          { !!playlists[playlistId]?.length && (
+            <tr>
+              <td>
+                <span className="flex justify-center font-lg font-bold">Submitted When</span>
+              </td>
+              <td>
+                <span className="flex justify-center font-lg font-bold">Submitted By</span>
+              </td>
+              <td>
+                <span className="flex justify-center font-lg font-bold">Title </span>
+              </td>
+              <td>
+                <span className="flex justify-center font-lg font-bold">Artist</span>
+              </td>
+              <td>
+                <span className="flex justify-center font-lg font-bold">Status</span>
+              </td>
+            </tr>
+          )}
+        </thead>
+        <tbody>
+          { playlists[playlistId] && playlists[playlistId].map(entry => (
+            <PlaylistEntry
+              key={entry.submittedOn}
+              {...entry}
+            />
+          ))}
 
-        { playlists[playlistId] && playlists[playlistId].map(entry => (
-          <PlaylistEntry
-            key={entry.submittedOn}
-            {...entry}
-          />
-        ))}
+          { !fetchingPlaylist && (!playlists[playlistId] || playlists[playlistId].length ===0) && (
+            <tr>
+              <td colSpan={5}>
+                <div className="flex justify-center items-center">
+                  <span className="italic text-base-content/75">There are no songs in this playlist yet, try clicking "Request Song" to add one.</span>
+                </div>
+              </td>
+            </tr>
+          )}
 
-        { !fetchingPlaylist && (!playlists[playlistId] || playlists[playlistId].length ===0) && (
-          <div className="col-span-5 flex justify-center items-center">
-            <span className="italic text-base-content/75">There are no songs in this playlist yet, try clicking "Request Song" to add one.</span>
-          </div>
-        )}
+          { !!fetchingPlaylist && (
+            <tr>
+              <td colSpan={5}>
+                <div className="flex justify-center items-center">
+                  <div className="loading loading-dots"/>
+                </div>
+              </td>
+            </tr>
+          )}
 
-        { !!fetchingPlaylist && (
-          <div className="col-span-5 flex justify-center items-center">
-            <div className="loading loading-spinner"/>
-          </div>
-        )}
-
-        <div className="col-span-5 flex justify-center items-center gap-2">
-          <button className="btn btn-wide"
-            onClick={() => modal.current?.showModal()}
-          ><Plus size={16}/> Request Song</button>
-          <button className="btn btn-wide"
-            onClick={() => tryRefresh()}
-          ><RotateCw size={16}/> Refresh</button>
-        </div>
-
-      </div>
+          <tr>
+            <td colSpan={5}>
+              <div className="flex justify-center items-center gap-2">
+                <button className="btn btn-wide"
+                  onClick={() => modal.current?.showModal()}
+                ><Plus size={16}/> Request Song</button>
+                <button className="btn btn-wide"
+                  onClick={() => tryRefresh()}
+                ><RotateCw size={16}/> Refresh</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       <dialog className="modal" ref={modal}>
         <form method="dialog" className="modal-box">
           <span className="font-bold text-lg">Request Song</span>
           <div className="mt-4">
-              <span className="text-base-content/75 italic">Search for a song</span>
-              <div className="w-full flex flex-row gap-2 p-4">
-                <input className="input input-bordered grow" type="text" placeholder="Search"
-                  value={searchString} onChange={e => setSearchString(e.target.value)}
-                />
-              </div>
-              { searchResults.length > 0 && (
-                <div className="mt-4 flex flex-col gap-1">
-                  <span className="text-base-content/75 italic">Click on a song to request it</span>
+            <span className="text-base-content/75 italic m-1">Enter the song title and artist</span>
+
+            <div className="flex flex-row gap-2">
+              <input className="input input-bordered w-full" type="text" placeholder="Title"  value={title } onChange={e => setTitle (e.target.value)}/>
+              <input className="input input-bordered w-full" type="text" placeholder="Artist" value={artist} onChange={e => setArtist(e.target.value)}/>
+            </div>
+
+            <span className="text-base-content/75 italic m-1">Or, use itunes to search for a song</span>
+              
+            <div className="w-full flex flex-row gap-2">
+              <input className="input input-bordered grow" type="text" placeholder="Search"
+                value={searchString} onChange={e => setSearchString(e.target.value)}
+              />
+            </div>
+
+            { (!!fetchingSearchResults || !!searchResults.length) && (
+              <div className="flex flex-col gap-1">
+                <span className="text-base-content/75 italic m-1">Click on a song to select it</span>
+                <div className="w-full flex flex-col gap-1 h-48 overflow-y-scroll p-2 rounded-lg bg-base-200">
+                  { !!fetchingSearchResults && <div className="flex justify-center items-center p-2">
+                    <div className="loading loading-dots"/>
+                  </div>}
                   { searchResults.map(song => (
-                    <button key={`${song.title}:${song.artist}`} className="btn flex justify-start gap-2 items-center cursor-pointer hover:bg-primary hover:text-primary-content p-2" onClick={() => tryAddSongRequest(song.title, song.artist)}>
-                      <span><Plus size={16}/></span>
-                      <span>{song.title}</span>
-                      <span>/</span>
-                      <span>{song.artist}</span>
-                    </button>
+                    <div key={`${song.title}:${song.artist}`} className="flex justify-start gap-2 items-center cursor-pointer hover:bg-base-300 p-2 rounded-lg" onClick={() => {
+                      setTitle (song.title );
+                      setArtist(song.artist);
+                    }}><Plus size={16}/> {song.title} / {song.artist}</div>
                   ))}
                 </div>
-
-              )}
-          </div>
-          <div className="mt-4">
-              <span className="text-base-content/75 italic">Or, enter the artist and title manually</span>
-              
-              <div className="flex flex-row gap-2 p-4">
-                <input className="input input-bordered w-full" type="text" placeholder="Title"  value={title } onChange={e => setTitle (e.target.value)}/>
-                <input className="input input-bordered w-full" type="text" placeholder="Artist" value={artist} onChange={e => setArtist(e.target.value)}/>
               </div>
-
+            )}
           </div>
+
           <div className="modal-action">
-              <button className="btn btn-primary">Request Song</button>
-              <button className="btn">Cancel</button>
+            <button className="btn btn-primary" onClick={tryAddSongRequest}>Request Song</button>
+            <button className="btn">Cancel</button>
           </div>
         </form>
         <form method="dialog" className="modal-backdrop">
@@ -492,26 +563,44 @@ function PlaylistEntry({
     return status.trim().toLowerCase() === "rejected";
   }
 
-  return (
-    <>
-      <span className="italic">{timeAgo(submittedOn)}</span>
-      <span className="badge badge-primary badge-outline">{submittedBy.replace("@jamesirwin.org", "")}</span>
-      <span>{title }</span>
-      <span>{artist}</span>
-      <div className={clsx(
-        "tooltip cursor-help w-40",
-        isPending () && "badge badge-warning",
-        isApproved() && "badge badge-success",
-        isRejected() && "badge badge-error",
-      )}
-      >
-        <div className="tooltip-content w-xs flex flex-col gap-1">
-          <span className="font-bold">Notes</span>
-          { !notes && <span className="italic text-base-content/75 text-wrap">There are no notes to display at this time.</span> }
-          { !!notes && <span>{notes}</span> }
+  return <tr className="hover:bg-base-300">
+      <td>
+        <div className="flex justify-center">
+          <span className="italic">{timeAgo(submittedOn)}</span>
         </div>
-        <Info size={16}/> {status}
-      </div>
-    </>
-  )
+      </td>
+      <td>
+        <div className="flex justify-center">
+          <span className="badge badge-primary badge-outline">{submittedBy.replace("@jamesirwin.org", "")}</span>
+        </div>
+      </td>
+      <td>
+        <div className="flex justify-center">
+          <span>{title }</span>          
+        </div>
+      </td>
+      <td>
+        <div className="flex justify-center">
+          <span>{artist}</span>
+        </div>
+      </td>
+      <td>
+        <div className="flex justify-center">
+          <div className={clsx(
+            "tooltip cursor-help w-40",
+            isPending () && "badge badge-warning",
+            isApproved() && "badge badge-success",
+            isRejected() && "badge badge-error",
+          )}
+          >
+            <div className="tooltip-content w-3xs flex flex-col gap-1">
+              <span className="font-bold">Notes</span>
+              {  !notes && <span className="italic text-base-content/75 text-wrap">There are no notes to display at this time.</span> }
+              { !!notes && <span>{notes}</span> }
+            </div>
+            <Info size={16}/> {status}
+          </div>
+        </div>
+      </td>
+    </tr>
 }
