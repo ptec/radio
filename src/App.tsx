@@ -595,7 +595,7 @@ function PlaylistEntry({
           >
             <div className="tooltip-content w-3xs flex flex-col gap-1">
               <span className="font-bold">Notes</span>
-              {  !notes && <span className="italic text-base-content/75 text-wrap">There are no notes to display at this time.</span> }
+              {  !notes && <span className="italic text-wrap">There are no notes to display at this time.</span> }
               { !!notes && <span>{notes}</span> }
             </div>
             <Info size={16}/> {status}
